@@ -61,8 +61,20 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
+{{/*
+Find the linstor client secret containing TLS certificates
+*/}}
 {{- define "linstor-affinity-controller.linstorClientSecretName" -}}
 {{- if .Values.linstor.clientSecret }}
+{{- .Values.linstor.clientSecret }}
+{{- else if .Capabilities.APIVersions.Has "piraeus.linbit.com/v1/LinstorController" }}
+{{- $crs := (lookup "piraeus.linbit.com/v1" "LinstorController" .Release.Namespace "").items }}
+{{- if $crs }}
+{{- if eq (len $crs) 1 }}
+{{- $item := index $crs 0 }}
+{{- $item.spec.linstorHttpsClientSecret }}
+{{- end }}
+{{- end }}
 {{- else if .Capabilities.APIVersions.Has "linstor.linbit.com/v1/LinstorController" }}
 {{- $crs := (lookup "linstor.linbit.com/v1" "LinstorController" .Release.Namespace "").items }}
 {{- if $crs }}
@@ -74,16 +86,31 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
+{{/*
+Find the linstor URL by operator resources
+*/}}
 {{- define "linstor-affinity-controller.linstorEndpointFromCRD" -}}
-{{- if .Capabilities.APIVersions.Has "linstor.linbit.com/v1/LinstorController" }}
+{{- if .Capabilities.APIVersions.Has "piraeus.linbit.com/v1/LinstorController" }}
+{{- $crs := (lookup "piraeus.linbit.com/v1" "LinstorController" .Release.Namespace "").items }}
+{{- if $crs }}
+{{- if eq (len $crs) 1 }}
+{{- $item := index $crs 0 }}
+{{- if include "linstor-affinity-controller.linstorClientSecretName" . }}
+{{- printf "https://%s.%s.svc:3371" $item.metadata.name $item.metadata.namespace }}
+{{- else }}
+{{- printf "http://%s.%s.svc:3370" $item.metadata.name $item.metadata.namespace }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- else if .Capabilities.APIVersions.Has "linstor.linbit.com/v1/LinstorController" }}
 {{- $crs := (lookup "linstor.linbit.com/v1" "LinstorController" .Release.Namespace "").items }}
 {{- if $crs }}
 {{- if eq (len $crs) 1 }}
 {{- $item := index $crs 0 }}
 {{- if include "linstor-affinity-controller.linstorClientSecretName" . }}
-{{- printf "http://%s.%s.svc:3370" $item.metadata.name $item.metadata.namespace }}
-{{- else }}
 {{- printf "https://%s.%s.svc:3371" $item.metadata.name $item.metadata.namespace }}
+{{- else }}
+{{- printf "http://%s.%s.svc:3370" $item.metadata.name $item.metadata.namespace }}
 {{- end }}
 {{- end }}
 {{- end }}
