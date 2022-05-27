@@ -193,7 +193,10 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 			return fmt.Errorf("failed to replace PV: %w", err)
 		}
 
-		a.recorder.Eventf(pv, nil, corev1.EventTypeNormal, "VolumeAffinityOutdated", "Replaced with updated version", "Affinity was out of sync with LINSTOR resource state")
+		a.recorder.Eventf(pv, nil, corev1.EventTypeNormal, "VolumeAffinityUpdated", "Replaced with updated version", "Affinity was out of sync with LINSTOR resource state")
+		if pv.Spec.ClaimRef != nil {
+			a.recorder.Eventf(pv.Spec.ClaimRef, nil, corev1.EventTypeNormal, "VolumeAffinityUpdated", "Replaced with updated version", "Affinity was out of sync with LINSTOR resource state")
+		}
 	} else {
 		klog.V(2).Infof("PV '%s' affinity is up-to-date with resource '%s'", pv.Name, rd.Name)
 	}
