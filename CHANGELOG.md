@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
 - Add event on PVC if bound to update PV.
+- Determine access policy from volume attributes if available.
 
 ## [0.1.0]
 

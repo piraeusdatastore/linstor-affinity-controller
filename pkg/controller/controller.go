@@ -9,6 +9,8 @@ import (
 	linstor "github.com/LINBIT/golinstor"
 	"github.com/LINBIT/golinstor/client"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/piraeusdatastore/linstor-csi/pkg/driver"
+	csilinstor "github.com/piraeusdatastore/linstor-csi/pkg/linstor"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
 	"github.com/piraeusdatastore/linstor-csi/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
@@ -163,7 +165,7 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 		return nil
 	}
 
-	if pv.Spec.CSI.Driver != "linstor.csi.linbit.com" {
+	if pv.Spec.CSI.Driver != csilinstor.DriverName {
 		klog.V(2).Infof("PV '%s' not provisioned by LINSTOR CSI, skipping", pv.Name)
 		return nil
 	}
@@ -205,7 +207,16 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 }
 
 func (a *AffinityReconciler) getRemoteAccessParameter(ctx context.Context, pv *corev1.PersistentVolume) (volume.RemoteAccessPolicy, error) {
-	// TODO: store parameter in volume attributes?
+	klog.V(3).Infof("Search for access policy in volume context '%s'", pv.Spec.CSI.VolumeAttributes)
+	vc, err := driver.VolumeContextFromMap(pv.Spec.CSI.VolumeAttributes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse volume context: %w", err)
+	}
+
+	if vc.RemoteAccessPolicy != nil {
+		klog.V(3).Infof("Found for access policy '%v' in volume context", vc.RemoteAccessPolicy)
+		return vc.RemoteAccessPolicy, nil
+	}
 
 	klog.V(3).Infof("Search for storage class '%s'", pv.Spec.StorageClassName)
 	sc, err := a.kclient.StorageV1().StorageClasses().Get(ctx, pv.Spec.StorageClassName, metav1.GetOptions{})
@@ -316,7 +327,7 @@ func IndexByResourceDefinition(obj interface{}) ([]string, error) {
 		return nil, nil
 	}
 
-	if pv.Spec.CSI.Driver != "linstor.csi.linbit.com" {
+	if pv.Spec.CSI.Driver != csilinstor.DriverName {
 		return nil, nil
 	}
 
