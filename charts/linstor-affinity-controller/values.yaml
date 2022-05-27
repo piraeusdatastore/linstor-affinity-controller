@@ -15,7 +15,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 options:
-  v: 2
+  v: 1
+  leader-election: true
   #reconcile-rate: 15s
   #resync-rate: 15m
 

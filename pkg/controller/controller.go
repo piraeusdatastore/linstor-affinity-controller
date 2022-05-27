@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"sort"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/klog/v2"
 
 	"github.com/piraeusdatastore/linstor-affinity-controller/pkg/version"
@@ -39,6 +42,8 @@ type Config struct {
 	ReconcileRate time.Duration
 	ResyncRate    time.Duration
 	Timeout       time.Duration
+	LeaderElector *leaderelection.LeaderElector
+	BindAddress   string
 }
 
 type AffinityReconciler struct {
@@ -75,7 +80,7 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 	broadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: kclient.EventsV1()})
 	recorder := broadcaster.NewRecorder(scheme.Scheme, version.EventsReporter)
 
-	return &AffinityReconciler{
+	a := &AffinityReconciler{
 		config:          cfg,
 		informerFactory: factory,
 		pvIndexer:       pvIndexer,
@@ -83,12 +88,26 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 		kclient:         kclient,
 		broadcaster:     broadcaster,
 		recorder:        recorder,
-	}, nil
+	}
+
+	if cfg.BindAddress != "" {
+		err := a.runHttpServer()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return a, nil
 }
 
 func (a *AffinityReconciler) Run(ctx context.Context) error {
 	a.broadcaster.StartRecordingToSink(ctx.Done())
 	defer a.broadcaster.Shutdown()
+
+	if a.config.LeaderElector != nil {
+		klog.V(2).Infof("starting leader election")
+		go a.config.LeaderElector.Run(ctx)
+	}
 
 	a.informerFactory.Start(ctx.Done())
 	a.informerFactory.WaitForCacheSync(ctx.Done())
@@ -131,6 +150,11 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 }
 
 func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.ResourceDefinition, pv *corev1.PersistentVolume) error {
+	if a.config.LeaderElector != nil && !a.config.LeaderElector.IsLeader() {
+		klog.V(2).Infof("Not leading, not reconciling resource '%s'", rd.Name)
+		return nil
+	}
+
 	needsApply := false
 
 	rawSavedProp, hasSavedProp := rd.Props[SavedPVPropKey]
@@ -313,6 +337,46 @@ func (a *AffinityReconciler) replacePV(ctx context.Context, rdName string, pv *c
 	if err != nil {
 		return fmt.Errorf("failed to remove stale property from RD: %w", err)
 	}
+
+	return nil
+}
+
+func (a *AffinityReconciler) runHttpServer() error {
+	listener, err := net.Listen("tcp", a.config.BindAddress)
+	if err != nil {
+		return fmt.Errorf("failed to create endpoint: %w", err)
+	}
+
+	healthz := leaderelection.NewLeaderHealthzAdaptor(5 * time.Second)
+	if a.config.LeaderElector != nil {
+		healthz.SetLeaderElection(a.config.LeaderElector)
+	}
+
+	mux := &http.ServeMux{}
+	mux.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
+		err := healthz.Check(request)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte("leader election check failed"))
+			return
+		}
+	})
+	mux.HandleFunc("/readyz", func(writer http.ResponseWriter, request *http.Request) {
+		if a.pvIndexer.HasSynced() {
+			_, _ = writer.Write([]byte("ok"))
+		} else {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte("not ready"))
+		}
+	})
+
+	go func() {
+		klog.V(1).Infof("Start serving /healthz and /readyz")
+		err = http.Serve(listener, mux)
+		if err != nil {
+			klog.V(2).ErrorS(err, "server exited with error")
+		}
+	}()
 
 	return nil
 }

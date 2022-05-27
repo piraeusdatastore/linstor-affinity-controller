@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add event on PVC if bound to update PV.
 - Determine access policy from volume attributes if available.
+- Use leader election to safely support multiple instances running at the same time.
 
 ## [0.1.0]
 

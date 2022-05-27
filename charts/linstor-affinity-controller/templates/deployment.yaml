@@ -41,6 +41,13 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:
+            - name: LEASE_LOCK_NAME
+              value: {{ include "linstor-affinity-controller.fullname" . }}
+            - name: LEASE_HOLDER_IDENTITY
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+                  apiVersion: v1
             - name: LS_CONTROLLERS
               value: {{ include "linstor-affinity-controller.linstorEndpoint" . }}
             {{- if include "linstor-affinity-controller.linstorClientSecretName" . }}
@@ -60,6 +67,14 @@ spec:
                   name: {{ include "linstor-affinity-controller.linstorClientSecretName" . }}
                   key: ca.crt
             {{- end }}
+          readinessProbe:
+            httpGet:
+              port: 8000
+              path: /readyz
+          livenessProbe:
+            httpGet:
+              port: 8000
+              path: /healthz
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
