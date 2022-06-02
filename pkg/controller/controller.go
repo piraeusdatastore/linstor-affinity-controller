@@ -237,7 +237,7 @@ func (a *AffinityReconciler) getRemoteAccessParameter(ctx context.Context, pv *c
 		return nil, fmt.Errorf("failed to parse volume context: %w", err)
 	}
 
-	if vc.RemoteAccessPolicy != nil {
+	if vc != nil && vc.RemoteAccessPolicy != nil {
 		klog.V(3).Infof("Found for access policy '%v' in volume context", vc.RemoteAccessPolicy)
 		return vc.RemoteAccessPolicy, nil
 	}

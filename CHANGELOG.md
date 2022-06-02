@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Fixed a potential nil-pointer if no volume context was found
+
 ## [0.2.0] -- 2022-05-27
 
 ### Added
