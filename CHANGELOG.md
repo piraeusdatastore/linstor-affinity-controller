@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] -- 2022-06-02
+
 ### Changed
 - Fixed a potential nil-pointer if no volume context was found
 
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial implementation
 
-[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.1...HEAD
+[0.2.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/releases/tag/v0.1.0
