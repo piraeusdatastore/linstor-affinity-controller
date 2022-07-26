@@ -24,16 +24,16 @@ your PV affinity will always match the actual volume placement in LINSTOR.
 
 ## Deployment
 
-This is a preview. Eventually, deployment will move to
-our [other helm charts](https://github.com/piraeusdatastore/helm-charts).
-
 The best way to deploy the LINSTOR Affinity Controller is by helm charm. If deployed to the same namespace
-as [our operator](https://github.com/piraeusdatastore/piraeus-operator)
-this is a single command process:
+as [our operator](https://github.com/piraeusdatastore/piraeus-operator) this is a simple process:
 
 ```
-helm install linstor-affinity-controller ./charts/linstor-affinity-controller
+helm repo add piraeus-charts https://piraeus.io/helm-charts/
+helm install linstor-affinity-controller piraeus-charts/linstor-affinity-controller
 ```
+
+If deploying to a different namespace, ensure that `linstor.endpoint` and `linstor.clientSecret` are set appropriately.
+For more information on the available options, see below.
 
 ### Options
 

@@ -1,5 +1,0 @@
-LINSTOR Affinity Controller deployed.
-
-Used LINSTOR URL: {{ include "linstor-affinity-controller.linstorEndpoint" .}}
-
-
