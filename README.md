@@ -47,7 +47,7 @@ The following options can be set on the chart:
 | `options.resync-rate`         | How often the controller will resync it's internal cache of Kubernetes resources             | `15m`                                                         |
 | `linstor.Endpoint`            | URL of the LINSTOR Controller API.                                                           | `""` (auto-detected when using Piraeus-Operator)              |
 | `linstor.clientSecret`        | TLS secret to use to authenticate with the LINSTOR API                                       | `""` (auto-detected when using Piraeus-Operator)              |
-| `image.repository`            | Repository to pull the linstor-affinity-controller image from.                               | `quay.io/piraeusdatastore/linstor-scheduler-extender`         |
+| `image.repository`            | Repository to pull the linstor-affinity-controller image from.                               | `quay.io/piraeusdatastore/linstor-affinity-controller`        |
 | `image.pullPolicy`            | Pull policy to use. Possible values: `IfNotPresent`, `Always`, `Never`                       | `IfNotPresent`                                                |
 | `image.tag`                   | Override the tag to pull. If not given, defaults to charts `AppVersion`.                     | `""`                                                          |
 | `resources`                   | Resources to request and limit on the container.                                             | `{requests: {cpu: 50m, mem: 100Mi}}`                          |
