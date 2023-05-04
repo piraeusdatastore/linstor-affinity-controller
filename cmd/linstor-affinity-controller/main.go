@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"time"
 
+	linstor "github.com/LINBIT/golinstor"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8scli "k8s.io/component-base/cli"
@@ -18,7 +19,7 @@ func NewControllerCommand() *cobra.Command {
 	cfgflags := genericclioptions.NewConfigFlags(false)
 	var reconcileRate, resyncRate, timeout time.Duration
 	var electorCfg leaderelection.Config
-	var bindAddress string
+	var bindAddress, propertyNamespace string
 
 	cmd := &cobra.Command{
 		Use:     "linstor-volume-controller",
@@ -38,12 +39,13 @@ func NewControllerCommand() *cobra.Command {
 			}
 
 			ctrl, err := controller.NewReconciler(&controller.Config{
-				RestCfg:       cfg,
-				ResyncRate:    resyncRate,
-				ReconcileRate: reconcileRate,
-				Timeout:       timeout,
-				LeaderElector: elector,
-				BindAddress:   bindAddress,
+				RestCfg:           cfg,
+				ResyncRate:        resyncRate,
+				ReconcileRate:     reconcileRate,
+				Timeout:           timeout,
+				LeaderElector:     elector,
+				BindAddress:       bindAddress,
+				PropertyNamespace: propertyNamespace,
 			})
 			if err != nil {
 				return err
@@ -58,6 +60,7 @@ func NewControllerCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&resyncRate, "resync-rate", 5*time.Minute, "how often the internal object cache should be resynchronized")
 	cmd.Flags().DurationVar(&timeout, "timeout", 1*time.Minute, "how long a single reconcile attempt can take")
 	cmd.Flags().StringVar(&bindAddress, "bind-address", "[::]:8000", "the address to use for /healthz and /readyz probes")
+	cmd.Flags().StringVar(&propertyNamespace, "property-namespace", linstor.NamespcAuxiliary, "The property namespace used by LINSTOR CSI")
 	electorCfg.AddFlags(cmd.Flags())
 
 	return cmd

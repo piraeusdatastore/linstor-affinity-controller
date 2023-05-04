@@ -38,12 +38,13 @@ const (
 )
 
 type Config struct {
-	RestCfg       *rest.Config
-	ReconcileRate time.Duration
-	ResyncRate    time.Duration
-	Timeout       time.Duration
-	LeaderElector *leaderelection.LeaderElector
-	BindAddress   string
+	RestCfg           *rest.Config
+	ReconcileRate     time.Duration
+	ResyncRate        time.Duration
+	Timeout           time.Duration
+	LeaderElector     *leaderelection.LeaderElector
+	BindAddress       string
+	PropertyNamespace string
 }
 
 type AffinityReconciler struct {
@@ -61,6 +62,8 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize linstor client: %w", err)
 	}
+
+	lclient.PropertyNamespace = cfg.PropertyNamespace
 
 	kclient, err := kubernetes.NewForConfig(cfg.RestCfg)
 	if err != nil {
