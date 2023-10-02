@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2023-10-02
+
 ### Added
 - Implement cache for resource listings.
 - Use custom User-Agent to identify calls in LINSTOR.
@@ -37,7 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial implementation
 
-[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v0.2.0...v0.2.1
