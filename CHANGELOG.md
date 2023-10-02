@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Implement cache for resource listings.
+- Use custom User-Agent to identify calls in LINSTOR.
+
 ## [0.3.0] -- 2023-05-04
 
 ### Added
