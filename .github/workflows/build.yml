@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -29,7 +29,7 @@ jobs:
           docker login --username=${DOCKER_USERNAME} --password-stdin quay.io <<< "${DOCKER_PASSWORD}"
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v5
         with:
           images: |
             quay.io/piraeusdatastore/linstor-affinity-controller
@@ -40,7 +40,7 @@ jobs:
       - name: Set VERSION
         run: echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       - name: Build
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           builder: ${{ steps.buildx.outputs.name }}
           platforms: linux/amd64,linux/arm64
