@@ -9,6 +9,7 @@ import (
 	"time"
 
 	linstor "github.com/LINBIT/golinstor"
+	clientcache "github.com/LINBIT/golinstor/cache"
 	"github.com/LINBIT/golinstor/client"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/piraeusdatastore/linstor-csi/pkg/driver"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/klog/v2"
 
-	"github.com/piraeusdatastore/linstor-affinity-controller/pkg/util"
 	"github.com/piraeusdatastore/linstor-affinity-controller/pkg/version"
 )
 
@@ -62,12 +62,12 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 	lclient, err := hlclient.NewHighLevelClient(
 		client.Log(KLogV(3)),
 		client.UserAgent("linstor-affinity-controller/"+version.Version),
+		clientcache.WithCaches(&clientcache.NodeCache{Timeout: cfg.Timeout}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize linstor client: %w", err)
 	}
 
-	lclient.Resources = util.NewResourceCache(lclient.Resources, cfg.Timeout)
 	lclient.PropertyNamespace = cfg.PropertyNamespace
 
 	kclient, err := kubernetes.NewForConfig(cfg.RestCfg)
