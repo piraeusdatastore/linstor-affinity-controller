@@ -68,6 +68,16 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 		return nil, fmt.Errorf("failed to initialize linstor client: %w", err)
 	}
 
+	if cfg.PropertyNamespace == "" {
+		prop, err := guessPropertyNamespace(context.Background(), lclient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to guess property namespace: %w", err)
+		}
+
+		klog.V(1).Infof("Determined property namespace: '%s'", prop)
+		cfg.PropertyNamespace = prop
+	}
+
 	lclient.PropertyNamespace = cfg.PropertyNamespace
 
 	kclient, err := kubernetes.NewForConfig(cfg.RestCfg)
@@ -544,4 +554,20 @@ func ApplyAffinity(topos []*csi.Topology) *applyv1core.VolumeNodeAffinityApplyCo
 	}
 
 	return applyv1core.VolumeNodeAffinity().WithRequired(selector)
+}
+
+func guessPropertyNamespace(ctx context.Context, lclient *hlclient.HighLevelClient) (string, error) {
+	nodes, err := lclient.Nodes.GetAll(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to list nodes for determining property namespace: %w", err)
+	}
+
+	for i := range nodes {
+		node := &nodes[i]
+		if node.Props[linstor.NamespcAuxiliary+"/topology/kubernetes.io/hostname"] != "" {
+			return linstor.NamespcAuxiliary + "/topology", nil
+		}
+	}
+
+	return linstor.NamespcAuxiliary, nil
 }

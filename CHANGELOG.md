@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Try to determine LINSTOR CSI topology namespace on startup.
+
+### Fixed
+- Bump golinstor to fix caching issue when filtering nodes for segment.
+
 ## [1.0.1] - 2024-05-02
 
 ### Changed

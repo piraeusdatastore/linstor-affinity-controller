@@ -45,7 +45,7 @@ The following options can be set on the chart:
 | `options.v`                   | Set verbosity for controller                                                                 | `2`                                                           |
 | `options.reconcileRate`       | Set the reconcile rate, i.e. how often the cluster state will be checked and updated         | `15s`                                                         |
 | `options.resyncRate`          | How often the controller will resync it's internal cache of Kubernetes resources             | `15m`                                                         |
-| `options.propertyNamespace`   | Namespace used by LINSTOR CSI to store Kubernetes Node Labels                                | `Aux`                                                         |
+| `options.propertyNamespace`   | Namespace used by LINSTOR CSI to store Kubernetes Node Labels                                | `""` (auto-detected based on existing node labels on startup  |
 | `linstor.Endpoint`            | URL of the LINSTOR Controller API.                                                           | `""` (auto-detected when using Piraeus-Operator)              |
 | `linstor.clientSecret`        | TLS secret to use to authenticate with the LINSTOR API                                       | `""` (auto-detected when using Piraeus-Operator)              |
 | `image.repository`            | Repository to pull the linstor-affinity-controller image from.                               | `quay.io/piraeusdatastore/linstor-affinity-controller`        |

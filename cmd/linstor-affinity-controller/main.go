@@ -5,7 +5,6 @@ import (
 	"os/signal"
 	"time"
 
-	linstor "github.com/LINBIT/golinstor"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	k8scli "k8s.io/component-base/cli"
@@ -60,7 +59,7 @@ func NewControllerCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&resyncRate, "resync-rate", 5*time.Minute, "how often the internal object cache should be resynchronized")
 	cmd.Flags().DurationVar(&timeout, "timeout", 1*time.Minute, "how long a single reconcile attempt can take")
 	cmd.Flags().StringVar(&bindAddress, "bind-address", "[::]:8000", "the address to use for /healthz and /readyz probes")
-	cmd.Flags().StringVar(&propertyNamespace, "property-namespace", linstor.NamespcAuxiliary, "The property namespace used by LINSTOR CSI")
+	cmd.Flags().StringVar(&propertyNamespace, "property-namespace", "", "The property namespace used by LINSTOR CSI")
 	electorCfg.AddFlags(cmd.Flags())
 
 	return cmd
