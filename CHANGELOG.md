@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Limit number of parallel reconciliations with `--workers` parameter, defaulting to 10.
+
 ### Changed
 - Add cache for resources to prevent calls to the LINSTOR API for every deployed resource.
 
