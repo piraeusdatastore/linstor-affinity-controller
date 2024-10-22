@@ -16,6 +16,7 @@ import (
 	csilinstor "github.com/piraeusdatastore/linstor-csi/pkg/linstor"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
 	"github.com/piraeusdatastore/linstor-csi/pkg/volume"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,7 @@ type Config struct {
 	LeaderElector     *leaderelection.LeaderElector
 	BindAddress       string
 	PropertyNamespace string
+	Workers           int
 }
 
 type AffinityReconciler struct {
@@ -138,23 +140,35 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 
 		resources, err := a.lclient.ResourceDefinitions.GetAll(runCtx, client.RDGetAllRequest{})
 		if err != nil {
-			klog.V(1).Infof("failed to list LINSTOR resource definitions: %v", err)
+			klog.V(1).ErrorS(err, "failed to list LINSTOR resource definitions")
 		}
+
+		eg, egCtx := errgroup.WithContext(runCtx)
+		eg.SetLimit(a.config.Workers)
 
 		for i := range resources {
 			resource := &resources[i]
 
-			pvs, _ := a.pvIndexer.GetIndexer().ByIndex("rd", resource.Name)
+			eg.Go(func() error {
+				pvs, _ := a.pvIndexer.GetIndexer().ByIndex("rd", resource.Name)
 
-			var pv *corev1.PersistentVolume
-			if len(pvs) == 1 {
-				pv = pvs[0].(*corev1.PersistentVolume)
-			}
+				var pv *corev1.PersistentVolume
+				if len(pvs) == 1 {
+					pv = pvs[0].(*corev1.PersistentVolume)
+				}
 
-			err := a.reconcileOne(runCtx, &resource.ResourceDefinition, pv)
-			if err != nil {
-				klog.V(1).Infof("failed to reconcile resource: %v", err)
-			}
+				err := a.reconcileOne(egCtx, &resource.ResourceDefinition, pv)
+				if err != nil {
+					klog.V(1).ErrorS(err, "failed to reconcile resource", "resource", resource.Name)
+				}
+
+				return nil
+			})
+		}
+
+		err = eg.Wait()
+		if err != nil {
+			klog.V(1).ErrorS(err, "failed to reconcile all resources")
 		}
 
 		cancel()
