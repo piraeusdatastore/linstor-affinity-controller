@@ -63,6 +63,7 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 		client.Log(KLogV(3)),
 		client.UserAgent("linstor-affinity-controller/"+version.Version),
 		clientcache.WithCaches(&clientcache.NodeCache{Timeout: cfg.Timeout}),
+		clientcache.WithCaches(&clientcache.ResourceCache{Timeout: cfg.Timeout}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize linstor client: %w", err)
@@ -209,6 +210,17 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 
 	if pv.Spec.CSI.Driver != csilinstor.DriverName {
 		klog.V(2).Infof("PV '%s' not provisioned by LINSTOR CSI, skipping", pv.Name)
+		return nil
+	}
+
+	klog.V(2).Infof("Check if LINSTOR API Cache for Resource '%s' has resource available", rd.Name)
+	ress, err := a.lclient.Resources.GetAll(ctx, rd.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get resources for resource definition '%s': %w", rd.Name, err)
+	}
+
+	if len(ress) == 0 {
+		klog.V(2).Infof("RD '%s' not (yet) present in cache, skipping", pv.Name)
 		return nil
 	}
 
