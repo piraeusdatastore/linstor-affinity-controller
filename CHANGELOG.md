@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Add cache for resources to prevent calls to the LINSTOR API for every deployed resource.
+
 ## [1.0.2] - 2024-07-02
 
 ### Changed
