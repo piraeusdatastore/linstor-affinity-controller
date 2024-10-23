@@ -152,6 +152,11 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 			eg.Go(func() error {
 				pvs, _ := a.pvIndexer.GetIndexer().ByIndex("rd", resource.Name)
 
+				// There should be one PV in the normal case, but there may be zero in these cases:
+				// * The resource is not actually related to Kubernetes and managed externally
+				// * The resource was updated by our reconciler, but the reconciler did not complete for one reason or
+				//   another, so we need to continue to restore the PV.
+				// reconcileOne() can deal with a "nil" PV.
 				var pv *corev1.PersistentVolume
 				if len(pvs) == 1 {
 					pv = pvs[0].(*corev1.PersistentVolume)
