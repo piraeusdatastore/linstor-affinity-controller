@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Do not consider PVs in the "Released" phase, they are likely to be cleaned up soon.
+
 ## [1.1.1] - 2025-03-26
 
 ### Changed
