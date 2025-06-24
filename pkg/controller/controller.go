@@ -232,6 +232,11 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 		return nil
 	}
 
+	if pv.Status.Phase == corev1.VolumeReleased {
+		klog.V(2).Infof("PV '%s' is in phase '%s', skipping", pv.Name, corev1.VolumeReleased)
+		return nil
+	}
+
 	klog.V(2).Infof("Check if LINSTOR API Cache for Resource '%s' has resource available", rd.Name)
 	ress, err := a.lclient.Resources.GetAll(ctx, rd.Name)
 	if err != nil {
@@ -357,10 +362,9 @@ func (a *AffinityReconciler) replacePV(ctx context.Context, rdName string, pv *c
 
 		klog.V(3).Infof("Start deletion of PV '%s'", pv.Name)
 
-		err = a.kclient.CoreV1().PersistentVolumes().Delete(ctx, pv.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{
-			UID:             &pv.UID,
-			ResourceVersion: &pv.ResourceVersion,
-		}})
+		err = a.kclient.CoreV1().PersistentVolumes().Delete(ctx, pv.Name, metav1.DeleteOptions{
+			Preconditions: &metav1.Preconditions{UID: &pv.UID},
+		})
 
 		if err != nil {
 			return fmt.Errorf("failed to start deleting PV: %w", err)
