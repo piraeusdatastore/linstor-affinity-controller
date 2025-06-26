@@ -216,10 +216,24 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 
 		needsApply = true
 	} else if hasSavedProp {
-		klog.V(2).Infof("removing stale PV property from RD")
-		err := a.lclient.ResourceDefinitions.Modify(ctx, rd.Name, client.GenericPropsModify{DeleteProps: []string{SavedPVPropKey}})
+		// NB: we deserialize a PersistentVolumeApplyConfiguration here as PersistentVolume. This is fine, because
+		// the ApplyConfiguration is just missing some optional fields, otherwise they are the same.
+		savedPV := &corev1.PersistentVolume{}
+		err := json.Unmarshal([]byte(rawSavedProp), savedPV)
 		if err != nil {
-			return fmt.Errorf("failed to remove stale property key: %w", err)
+			return fmt.Errorf("failed to parse saved PV resource: %w", err)
+		}
+
+		if pv.DeletionTimestamp != nil || pv.Spec.PersistentVolumeReclaimPolicy != savedPV.Spec.PersistentVolumeReclaimPolicy {
+			klog.V(2).Infof("decoded PV does not match current PV or current PV is being deleted, need to re-apply")
+			pv.Spec.PersistentVolumeReclaimPolicy = savedPV.Spec.PersistentVolumeReclaimPolicy
+			needsApply = true
+		} else {
+			klog.V(2).Infof("removing stale PV property from RD")
+			err = a.lclient.ResourceDefinitions.Modify(ctx, rd.Name, client.GenericPropsModify{DeleteProps: []string{SavedPVPropKey}})
+			if err != nil {
+				return fmt.Errorf("failed to remove stale property key: %w", err)
+			}
 		}
 	}
 
@@ -361,17 +375,14 @@ func (a *AffinityReconciler) replacePV(ctx context.Context, rdName string, pv *c
 
 		patch := []byte(`{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}`)
 		pv, err = a.kclient.CoreV1().PersistentVolumes().Patch(ctx, pv.Name, types.MergePatchType, patch, metav1.PatchOptions{FieldManager: version.FieldManager})
-
 		if err != nil {
 			return fmt.Errorf("failed to reconfigure PV reclaim mode: %w", err)
 		}
 
 		klog.V(3).Infof("Start deletion of PV '%s'", pv.Name)
-
 		err = a.kclient.CoreV1().PersistentVolumes().Delete(ctx, pv.Name, metav1.DeleteOptions{
 			Preconditions: &metav1.Preconditions{UID: &pv.UID},
 		})
-
 		if err != nil {
 			return fmt.Errorf("failed to start deleting PV: %w", err)
 		}
