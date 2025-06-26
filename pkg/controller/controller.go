@@ -136,6 +136,7 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 	ticker := time.NewTicker(a.config.ReconcileRate)
 
 	for {
+		now := time.Now()
 		runCtx, cancel := context.WithTimeout(ctx, a.config.Timeout)
 
 		resources, err := a.lclient.ResourceDefinitions.GetAll(runCtx, client.RDGetAllRequest{})
@@ -162,7 +163,7 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 					pv = pvs[0].(*corev1.PersistentVolume)
 				}
 
-				err := a.reconcileOne(egCtx, &resource.ResourceDefinition, pv)
+				err := a.reconcileOne(egCtx, &resource.ResourceDefinition, pv, now)
 				if err != nil {
 					klog.V(1).ErrorS(err, "failed to reconcile resource", "resource", resource.Name)
 				}
@@ -187,7 +188,7 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 	}
 }
 
-func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.ResourceDefinition, pv *corev1.PersistentVolume) error {
+func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.ResourceDefinition, pv *corev1.PersistentVolume, now time.Time) error {
 	if a.config.LeaderElector != nil && !a.config.LeaderElector.IsLeader() {
 		klog.V(2).Infof("Not leading, not reconciling resource '%s'", rd.Name)
 		return nil
@@ -234,6 +235,11 @@ func (a *AffinityReconciler) reconcileOne(ctx context.Context, rd *client.Resour
 
 	if pv.Status.Phase == corev1.VolumeReleased {
 		klog.V(2).Infof("PV '%s' is in phase '%s', skipping", pv.Name, corev1.VolumeReleased)
+		return nil
+	}
+
+	if pv.CreationTimestamp.Add(a.config.Timeout).After(now) {
+		klog.V(2).Infof("PV '%s' was created at %s, which is within the initial grace period, skipping", pv.Name, pv.CreationTimestamp)
 		return nil
 	}
 
