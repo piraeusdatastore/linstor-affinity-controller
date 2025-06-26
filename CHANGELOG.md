@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Do not consider PVs in the "Released" phase, they are likely to be cleaned up soon.
 - Do not consider PVs that have been created within the resource cache timeout, they are likely to produce false
   positives.
+- Properly retry reconciliation in case removal of original PV gets interrupted.
 
 ## [1.1.1] - 2025-03-26
 
