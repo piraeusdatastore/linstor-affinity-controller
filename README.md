@@ -42,11 +42,12 @@ The following options can be set on the chart:
 | Option                        | Usage                                                                                        | Default                                                       |
 |-------------------------------|----------------------------------------------------------------------------------------------|---------------------------------------------------------------|
 | `replicaCount`                | Number of replicas to deploy.                                                                | `1`                                                           |
-| `options.v`                   | Set verbosity for controller                                                                 | `2`                                                           |
+| `options.v`                   | Set verbosity for controller                                                                 | `1`                                                           |
+| `options.leaderElection`      | Enable leader election to coordinate betwen multiple replicas.                               | `true`                                                        |
 | `options.reconcileRate`       | Set the reconcile rate, i.e. how often the cluster state will be checked and updated         | `15s`                                                         |
 | `options.resyncRate`          | How often the controller will resync it's internal cache of Kubernetes resources             | `15m`                                                         |
-| `options.propertyNamespace`   | Namespace used by LINSTOR CSI to store Kubernetes Node Labels                                | `""` (auto-detected based on existing node labels on startup  |
-| `linstor.Endpoint`            | URL of the LINSTOR Controller API.                                                           | `""` (auto-detected when using Piraeus-Operator)              |
+| `options.propertyNamespace`   | Namespace used by LINSTOR CSI to search for node labels.                                     | `""` (auto-detected based on existing node labels on startup) |
+| `linstor.endpoint`            | URL of the LINSTOR Controller API.                                                           | `""` (auto-detected when using Piraeus-Operator)              |
 | `linstor.clientSecret`        | TLS secret to use to authenticate with the LINSTOR API                                       | `""` (auto-detected when using Piraeus-Operator)              |
 | `image.repository`            | Repository to pull the linstor-affinity-controller image from.                               | `quay.io/piraeusdatastore/linstor-affinity-controller`        |
 | `image.pullPolicy`            | Pull policy to use. Possible values: `IfNotPresent`, `Always`, `Never`                       | `IfNotPresent`                                                |
@@ -64,6 +65,7 @@ The following options can be set on the chart:
 | `serviceAccount.name`         | Sets the name of the service account. If left empty, will use the release name as default    | `""`                                                          |
 | `podDisruptionBudget.enabled` | Enable creation of a pod disruption budget to protect the availability of the scheduler      | `true`                                                        |
 | `autoscaling.enabled`         | Enable creation of a horizontal pod autoscaler to ensure availability in case of high usage` | `"false`                                                      |
+| `monitoring.enabled`          | Enable creation of resources for monitoring via Prometheus Operator                          | `"false"`                                                     |
 
 ***
 

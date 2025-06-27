@@ -14,6 +14,9 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	csilinstor "github.com/piraeusdatastore/linstor-csi/pkg/linstor"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -36,6 +39,7 @@ type Config struct {
 	Timeout           time.Duration
 	LeaderElector     *leaderelection.LeaderElector
 	BindAddress       string
+	MetricsAddress    string
 	PropertyNamespace string
 	Workers           int
 }
@@ -124,6 +128,56 @@ func (a *AffinityController) Run(ctx context.Context) error {
 		}
 	}
 
+	var reconcilerCounter, reconcilerFailCounter, reconcilerGeneratedOperationGauge, operationCounter, operationFailCounter *prometheus.CounterVec
+	var reconcilerDuration, operationDuration *prometheus.HistogramVec
+	if a.config.MetricsAddress != "" {
+		reconcilerCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "linstor_affinity_controller_reconciles_total",
+			Help: "Total number of reconciles",
+		}, []string{"reconciler"})
+		reconcilerFailCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "linstor_affinity_controller_reconciles_failures_total",
+			Help: "Total number of failed reconciles",
+		}, []string{"reconciler"})
+		operationCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "linstor_affinity_controller_operations_total",
+			Help: "Total number of started operations",
+		}, []string{"operation"})
+		operationFailCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "linstor_affinity_controller_operations_failures_total",
+			Help: "Total number of failed operations",
+		}, []string{"operation"})
+		reconcilerGeneratedOperationGauge = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "linstor_affinity_controller_operations_per_reconciler_total",
+			Help: "Number of operations generated per reconciler",
+		}, []string{"reconciler", "operation"})
+		reconcilerDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "linstor_affinity_controller_reconciles_duration",
+			Help: "Duration of the reconciliation",
+		}, []string{"reconciler"})
+		operationDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "linstor_affinity_controller_operations_duration",
+			Help: "Duration of the operation",
+		}, []string{"operation"})
+
+		promRegistry := prometheus.NewPedanticRegistry()
+		promRegistry.MustRegister(collectors.NewGoCollector())
+		promRegistry.MustRegister(
+			reconcilerCounter,
+			reconcilerFailCounter,
+			reconcilerGeneratedOperationGauge,
+			operationCounter,
+			operationFailCounter,
+			reconcilerDuration,
+			operationDuration,
+		)
+
+		err := a.runMetricsEndpoints(ctx, promRegistry)
+		if err != nil {
+			return fmt.Errorf("failed to start metrics server: %w", err)
+		}
+	}
+
 	if a.config.LeaderElector != nil {
 		klog.V(2).Infof("starting leader election")
 		go a.config.LeaderElector.Run(ctx)
@@ -144,9 +198,28 @@ func (a *AffinityController) Run(ctx context.Context) error {
 		for i := range a.reconcilers {
 			re := a.reconcilers[i]
 			reconcileEG.Go(func() error {
+				if reconcilerCounter != nil {
+					reconcilerCounter.WithLabelValues(re.Name()).Inc()
+					timer := prometheus.NewTimer(reconcilerDuration.WithLabelValues(re.Name()))
+					defer timer.ObserveDuration()
+				}
+
 				o, err := re.GenerateOperations(runCtx, now)
 				if err != nil {
+					if reconcilerFailCounter != nil {
+						reconcilerFailCounter.WithLabelValues(re.Name()).Inc()
+					}
 					return fmt.Errorf("failed to run reconciler: '%w'", err)
+				}
+
+				if reconcilerGeneratedOperationGauge != nil {
+					perOps := make(map[string]int)
+					for _, op := range o {
+						perOps[op.Name]++
+					}
+					for k, v := range perOps {
+						reconcilerGeneratedOperationGauge.WithLabelValues(re.Name(), k).Add(float64(v))
+					}
 				}
 				ops[i] = o
 				return nil
@@ -158,7 +231,6 @@ func (a *AffinityController) Run(ctx context.Context) error {
 		}
 
 		cancel()
-
 		runCtx, cancel = context.WithTimeout(ctx, a.config.Timeout)
 		var operationEG errgroup.Group
 		operationEG.SetLimit(a.config.Workers)
@@ -170,7 +242,18 @@ func (a *AffinityController) Run(ctx context.Context) error {
 					return nil
 				}
 
-				return op.Execute(runCtx)
+				if operationCounter != nil {
+					operationCounter.WithLabelValues(op.Name).Inc()
+					timer := prometheus.NewTimer(operationDuration.WithLabelValues(op.Name))
+					defer timer.ObserveDuration()
+				}
+
+				err := op.Execute(runCtx)
+				if err != nil {
+					operationFailCounter.WithLabelValues(op.Name).Inc()
+				}
+
+				return err
 			})
 		}
 
@@ -227,10 +310,30 @@ func (a *AffinityController) runLivenessEndpoints(ctx context.Context) error {
 	})
 
 	go func() {
-		klog.V(1).Infof("Start serving /healthz and /readyz")
-		err = http.Serve(listener, mux)
+		klog.V(1).Infof("Start serving /healthz and /readyz on %s", a.config.BindAddress)
+		err := http.Serve(listener, mux)
 		if err != nil {
-			klog.V(2).ErrorS(err, "server exited with error")
+			klog.V(2).ErrorS(err, "liveness server exited with error")
+		}
+	}()
+
+	return nil
+}
+
+func (a *AffinityController) runMetricsEndpoints(ctx context.Context, promRegistry *prometheus.Registry) error {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", a.config.MetricsAddress)
+	if err != nil {
+		return fmt.Errorf("failed to create endpoint: %w", err)
+	}
+
+	mux := &http.ServeMux{}
+	mux.Handle("/metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{Registry: promRegistry}))
+	go func() {
+		klog.V(1).Infof("Start serving /metrics on %s", a.config.MetricsAddress)
+		err := http.Serve(listener, mux)
+		if err != nil {
+			klog.V(2).ErrorS(err, "metrics server exited with error")
 		}
 	}()
 

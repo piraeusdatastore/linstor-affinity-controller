@@ -18,7 +18,7 @@ func NewControllerCommand() *cobra.Command {
 	cfgflags := genericclioptions.NewConfigFlags(false)
 	var reconcileRate, resyncRate, timeout time.Duration
 	var electorCfg leaderelection.Config
-	var bindAddress, propertyNamespace string
+	var bindAddress, metricsAddress, propertyNamespace string
 	var workers int
 
 	cmd := &cobra.Command{
@@ -45,6 +45,7 @@ func NewControllerCommand() *cobra.Command {
 				Timeout:           timeout,
 				LeaderElector:     elector,
 				BindAddress:       bindAddress,
+				MetricsAddress:    metricsAddress,
 				PropertyNamespace: propertyNamespace,
 				Workers:           workers,
 			})
@@ -61,6 +62,7 @@ func NewControllerCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&resyncRate, "resync-rate", 5*time.Minute, "how often the internal object cache should be resynchronized")
 	cmd.Flags().DurationVar(&timeout, "timeout", 1*time.Minute, "how long a single reconcile attempt can take")
 	cmd.Flags().StringVar(&bindAddress, "bind-address", "[::]:8000", "the address to use for /healthz and /readyz probes")
+	cmd.Flags().StringVar(&metricsAddress, "metrics-address", "", "the address to use for serving /metrics")
 	cmd.Flags().StringVar(&propertyNamespace, "property-namespace", "", "The property namespace used by LINSTOR CSI")
 	cmd.Flags().IntVar(&workers, "workers", 10, "Number of reconciliations to run in parallel")
 	electorCfg.AddFlags(cmd.Flags())
