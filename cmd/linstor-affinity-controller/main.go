@@ -38,7 +38,7 @@ func NewControllerCommand() *cobra.Command {
 				return err
 			}
 
-			ctrl, err := controller.NewReconciler(&controller.Config{
+			ctrl, err := controller.New(&controller.Config{
 				RestCfg:           cfg,
 				ResyncRate:        resyncRate,
 				ReconcileRate:     reconcileRate,
