@@ -111,19 +111,19 @@ func NewReconciler(cfg *Config) (*AffinityReconciler, error) {
 		recorder:        recorder,
 	}
 
-	if cfg.BindAddress != "" {
-		err := a.runHttpServer()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return a, nil
 }
 
 func (a *AffinityReconciler) Run(ctx context.Context) error {
 	a.broadcaster.StartRecordingToSink(ctx.Done())
 	defer a.broadcaster.Shutdown()
+
+	if a.config.BindAddress != "" {
+		err := a.runHealthEndpoints(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start liveness server: %w", err)
+		}
+	}
 
 	if a.config.LeaderElector != nil {
 		klog.V(2).Infof("starting leader election")
@@ -160,7 +160,7 @@ func (a *AffinityReconciler) Run(ctx context.Context) error {
 				// reconcileOne() can deal with a "nil" PV.
 				var pv *corev1.PersistentVolume
 				if len(pvs) == 1 {
-					pv = pvs[0].(*corev1.PersistentVolume)
+					pv = pvs[0].(*corev1.PersistentVolume).DeepCopy()
 				}
 
 				err := a.reconcileOne(egCtx, &resource.ResourceDefinition, pv, now)
@@ -411,8 +411,9 @@ func (a *AffinityReconciler) replacePV(ctx context.Context, rdName string, pv *c
 	return nil
 }
 
-func (a *AffinityReconciler) runHttpServer() error {
-	listener, err := net.Listen("tcp", a.config.BindAddress)
+func (a *AffinityReconciler) runHealthEndpoints(ctx context.Context) error {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", a.config.BindAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create endpoint: %w", err)
 	}
@@ -427,7 +428,7 @@ func (a *AffinityReconciler) runHttpServer() error {
 		err := healthz.Check(request)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
-			_, _ = writer.Write([]byte("leader election check failed"))
+			_, _ = fmt.Fprintf(writer, "healthz check failed: %v", err)
 			return
 		}
 	})
