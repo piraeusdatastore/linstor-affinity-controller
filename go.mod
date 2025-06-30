@@ -5,9 +5,9 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/LINBIT/golinstor v0.55.0
+	github.com/LINBIT/golinstor v0.56.0
 	github.com/container-storage-interface/spec v1.11.0
-	github.com/piraeusdatastore/linstor-csi v1.8.0
+	github.com/piraeusdatastore/linstor-csi v1.8.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -47,7 +47,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0 // indirect
-	github.com/kubernetes-csi/external-snapshotter/v8 v8.2.1 // indirect
+	github.com/kubernetes-csi/external-snapshotter/v8 v8.3.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
@@ -81,7 +81,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	k8s.io/mount-utils v0.33.1 // indirect
+	k8s.io/mount-utils v0.33.2 // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	moul.io/http2curl/v2 v2.3.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
