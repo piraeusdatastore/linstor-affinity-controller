@@ -249,7 +249,7 @@ func (a *AffinityController) Run(ctx context.Context) error {
 				}
 
 				err := op.Execute(runCtx)
-				if err != nil {
+				if err != nil && operationFailCounter != nil {
 					operationFailCounter.WithLabelValues(op.Name).Inc()
 				}
 
