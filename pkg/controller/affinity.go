@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/LINBIT/golinstor/client"
@@ -61,7 +62,7 @@ func (a *AffinityReconciler) GenerateOperations(ctx context.Context, now time.Ti
 
 		o, err := a.generateOperations(ctx, &resource.ResourceDefinition, pv, now)
 		if err != nil {
-			klog.V(2).ErrorS(err, "Skipping reconciliation because of error", "RD", resource.Name)
+			klog.V(1).ErrorS(err, "Skipping reconciliation because of error", "RD", resource.Name)
 		}
 
 		if o != nil {
@@ -170,6 +171,19 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 }
 
 func (a *AffinityReconciler) getRemoteAccessParameter(ctx context.Context, pv *corev1.PersistentVolume) (volume.RemoteAccessPolicy, error) {
+	klog.V(3).Infof("Search for access policy in PV annotations")
+	for k, val := range pv.Annotations {
+		if strings.HasPrefix(k, version.OverrideAnnotationPrefix) {
+			var policy volume.RemoteAccessPolicy
+			err := (&policy).UnmarshalText([]byte(val))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse override access context annotation value '%s': %w", val, err)
+			}
+			klog.V(3).Infof("Found access policy '%v' in PV annotation '%s'", policy, k)
+			return policy, nil
+		}
+	}
+
 	klog.V(3).Infof("Search for access policy in volume context '%s'", pv.Spec.CSI.VolumeAttributes)
 	vc, err := driver.VolumeContextFromMap(pv.Spec.CSI.VolumeAttributes)
 	if err != nil {
