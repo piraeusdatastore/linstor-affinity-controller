@@ -5,13 +5,13 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/LINBIT/golinstor v0.56.0
+	github.com/LINBIT/golinstor v0.56.2
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/piraeusdatastore/linstor-csi v1.8.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
-	golang.org/x/sync v0.15.0
+	golang.org/x/sync v0.16.0
 	k8s.io/api v0.33.2
 	k8s.io/apimachinery v0.33.2
 	k8s.io/cli-runtime v0.33.2
