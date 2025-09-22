@@ -1,7 +1,7 @@
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
-github.com/LINBIT/golinstor v0.56.2 h1:efT4d8C712bSEyxvhgMoExpPAVJhkViX8g+GOgC3fEI=
-github.com/LINBIT/golinstor v0.56.2/go.mod h1:JF2dGKWa9wyT6M9GOHmlzqFB9/s84Z9bt3tRkZLvZSU=
+github.com/LINBIT/golinstor v0.57.0 h1:1ZJt3otytQ99QdIvXAFItnGpmM2+Y5FYRGI5XCbhKVM=
+github.com/LINBIT/golinstor v0.57.0/go.mod h1:TXAMGiskT4fY/koTCOt6qqF60uWobDqUHoB8srNeCnY=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=

@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.1
 
 require (
-	github.com/LINBIT/golinstor v0.56.2
+	github.com/LINBIT/golinstor v0.57.0
 	github.com/container-storage-interface/spec v1.11.0
 	github.com/piraeusdatastore/linstor-csi v1.8.1
 	github.com/prometheus/client_golang v1.23.2
