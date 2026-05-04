@@ -74,6 +74,11 @@ func (a *AffinityReconciler) GenerateOperations(ctx context.Context, now time.Ti
 }
 
 func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.ResourceDefinition, pv *corev1.PersistentVolume, now time.Time) (*operations.Operation, error) {
+	if rd.Props[version.SkipPropKey] != "" {
+		klog.V(2).Infof("Skipping reconciliation of RD '%s' because of LINSTOR property '%s'", rd.Name, version.SkipPropKey)
+		return nil, nil
+	}
+
 	needsApply := false
 	rawSavedProp, hasSavedProp := rd.Props[version.SavedPVPropKey]
 
@@ -111,6 +116,11 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 			klog.V(2).Infof("Need to remove stale PV property from RD")
 			return operations.RemovePVProperty(a.LinstorClient, rd.Name), nil
 		}
+	}
+
+	if pv.Annotations[version.SkipAnnotation] != "" {
+		klog.V(2).Infof("Skipping reconciliation of PV '%s' because of annotation '%s'", pv.Name, version.SkipAnnotation)
+		return nil, nil
 	}
 
 	if pv.Spec.CSI == nil {
