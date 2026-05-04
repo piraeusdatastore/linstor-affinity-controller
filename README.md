@@ -67,6 +67,33 @@ The following options can be set on the chart:
 | `autoscaling.enabled`         | Enable creation of a horizontal pod autoscaler to ensure availability in case of high usage` | `"false`                                                      |
 | `monitoring.enabled`          | Enable creation of resources for monitoring via Prometheus Operator                          | `"false"`                                                     |
 
+## Volume annotations and LINSTOR properties
+
+The controller's behaviour for individual volumes can be controlled via Kubernetes annotations on the PV and LINSTOR
+properties on the ResourceDefinition (RD).
+
+### Skipping reconciliation
+
+Setting the annotation `piraeus.io/skip-affinity-controller` to any non-empty value on a PV prevents the controller
+from replacing that PV, leaving its affinity unchanged:
+
+```
+kubectl annotate pv <pv-name> piraeus.io/skip-affinity-controller=true
+```
+
+The same effect can be achieved from the LINSTOR side by setting the auxiliary property
+`Aux/affinity-updater-skip` on the ResourceDefinition:
+
+```
+linstor rd set-property <rd-name> Aux/affinity-updater-skip true
+```
+
+### Overriding the remote access policy
+
+By default the controller derives the remote access policy from the StorageClass parameters or CSI volume context.
+To override it for a specific volume, set an annotation whose key starts with `override.piraeus.io` on the PV.
+The value must be a valid remote access policy string as understood by linstor-csi.
+
 ***
 
 [^1]: That is not 100% true: you can _add_ affinity if it was previously unset, but once set, it can't be modified.
