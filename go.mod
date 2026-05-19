@@ -5,16 +5,16 @@ go 1.26.0
 require (
 	github.com/LINBIT/golinstor v0.61.0
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/piraeusdatastore/linstor-csi v1.11.1
+	github.com/piraeusdatastore/linstor-csi v1.11.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.20.0
-	k8s.io/api v0.36.0
-	k8s.io/apimachinery v0.36.0
-	k8s.io/cli-runtime v0.36.0
-	k8s.io/client-go v0.36.0
-	k8s.io/component-base v0.36.0
+	k8s.io/api v0.36.1
+	k8s.io/apimachinery v0.36.1
+	k8s.io/cli-runtime v0.36.1
+	k8s.io/client-go v0.36.1
+	k8s.io/component-base v0.36.1
 	k8s.io/klog/v2 v2.140.0
 )
 
