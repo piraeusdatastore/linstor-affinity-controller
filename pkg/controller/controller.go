@@ -14,6 +14,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	csilinstor "github.com/piraeusdatastore/linstor-csi/pkg/linstor"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
+	"github.com/piraeusdatastore/linstor-csi/pkg/volume"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -354,7 +355,12 @@ func IndexByResourceDefinition(obj interface{}) ([]string, error) {
 		return nil, nil
 	}
 
-	return []string{pv.Spec.CSI.VolumeHandle}, nil
+	id, err := volume.ParseVolumeId(pv.Spec.CSI.VolumeHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse volume handle of PV '%s': %w", pv.Name, err)
+	}
+
+	return []string{id.ResourceName}, nil
 }
 
 func AffinityMatchesTopology(affinity *corev1.VolumeNodeAffinity, topos []*csi.Topology) bool {

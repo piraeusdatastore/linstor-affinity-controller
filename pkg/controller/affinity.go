@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ func (a *AffinityReconciler) Name() string {
 }
 
 func (a *AffinityReconciler) GenerateOperations(ctx context.Context, now time.Time) ([]operations.Operation, error) {
-	resources, err := a.LinstorClient.ResourceDefinitions.GetAll(ctx, client.RDGetAllRequest{})
+	resources, err := a.LinstorClient.ResourceDefinitions.GetAll(ctx, client.RDGetAllRequest{WithVolumeDefinitions: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resource definitions: %w", err)
 	}
@@ -48,21 +49,80 @@ func (a *AffinityReconciler) GenerateOperations(ctx context.Context, now time.Ti
 	for i := range resources {
 		resource := &resources[i]
 
-		pvs, _ := a.PVIndexer.GetIndexer().ByIndex("rd", resource.Name)
+		// A single RD can back multiple PVs, one per volume number.
+		indexed, _ := a.PVIndexer.GetIndexer().ByIndex("rd", resource.Name)
 
-		// There should be one PV in the normal case, but there may be zero in these cases:
-		// * The resource is not actually related to Kubernetes and managed externally
-		// * The resource was updated by our reconciler, but the reconciler did not complete for one reason or
-		//   another, so we need to continue to restore the PV.
-		// Our Operation can deal with a "nil" PV.
-		var pv *corev1.PersistentVolume
-		if len(pvs) == 1 {
-			pv = pvs[0].(*corev1.PersistentVolume).DeepCopy()
+		pvs := make([]*corev1.PersistentVolume, 0, len(indexed))
+		for _, obj := range indexed {
+			pvs = append(pvs, obj.(*corev1.PersistentVolume).DeepCopy())
 		}
 
-		o, err := a.generateOperations(ctx, &resource.ResourceDefinition, pv, now)
+		ops = append(ops, a.generateOperations(ctx, resource, pvs, now)...)
+	}
+
+	return ops, nil
+}
+
+func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.ResourceDefinitionWithVolumeDefinition, pvs []*corev1.PersistentVolume, now time.Time) []operations.Operation {
+	if rd.Props[version.SkipPropKey] != "" {
+		klog.V(2).Infof("Skipping reconciliation of RD '%s' because of LINSTOR property '%s'", rd.Name, version.SkipPropKey)
+		return nil
+	}
+
+	// Saved PV state left behind on a volume definition by a replace that did not
+	// run to completion, keyed by volume number. Present when a previous replace
+	// was interrupted before it could re-create the PV and clean up after itself.
+	saved := map[int]string{}
+	for _, vd := range rd.VolumeDefinitions {
+		if vd.VolumeNumber == nil {
+			continue
+		}
+		if raw, ok := vd.Props[version.SavedPVPropKey]; ok {
+			saved[int(*vd.VolumeNumber)] = raw
+		}
+	}
+
+	// Live PVs, keyed by the volume number encoded in their CSI volume handle.
+	live := map[int]*corev1.PersistentVolume{}
+	for _, pv := range pvs {
+		if pv.Spec.CSI == nil {
+			continue
+		}
+
+		id, err := volume.ParseVolumeId(pv.Spec.CSI.VolumeHandle)
 		if err != nil {
-			klog.V(1).ErrorS(err, "Skipping reconciliation because of error", "RD", resource.Name)
+			klog.V(1).ErrorS(err, "Skipping PV with unparseable volume handle", "PV", pv.Name, "handle", pv.Spec.CSI.VolumeHandle)
+			continue
+		}
+
+		if other, ok := live[id.VolumeNumber]; ok {
+			klog.V(1).Infof("PVs '%s' and '%s' both map to volume '%s', skipping", other.Name, pv.Name, id)
+			continue
+		}
+
+		live[id.VolumeNumber] = pv
+	}
+
+	// Reconcile every volume that has a live PV and/or leftover saved state.
+	volNrs := make([]int, 0, len(live)+len(saved))
+	for volNr := range live {
+		volNrs = append(volNrs, volNr)
+	}
+	for volNr := range saved {
+		if _, ok := live[volNr]; !ok {
+			volNrs = append(volNrs, volNr)
+		}
+	}
+	sort.Ints(volNrs)
+
+	var ops []operations.Operation
+	for _, volNr := range volNrs {
+		savedRaw, hasSaved := saved[volNr]
+
+		o, err := a.generateVolumeOperation(ctx, volume.ID{ResourceName: rd.Name, VolumeNumber: volNr}, live[volNr], savedRaw, hasSaved, now)
+		if err != nil {
+			klog.V(1).ErrorS(err, "Skipping reconciliation because of error", "RD", rd.Name, "volume", volNr)
+			continue
 		}
 
 		if o != nil {
@@ -70,22 +130,16 @@ func (a *AffinityReconciler) GenerateOperations(ctx context.Context, now time.Ti
 		}
 	}
 
-	return ops, nil
+	return ops
 }
 
-func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.ResourceDefinition, pv *corev1.PersistentVolume, now time.Time) (*operations.Operation, error) {
-	if rd.Props[version.SkipPropKey] != "" {
-		klog.V(2).Infof("Skipping reconciliation of RD '%s' because of LINSTOR property '%s'", rd.Name, version.SkipPropKey)
-		return nil, nil
-	}
-
+func (a *AffinityReconciler) generateVolumeOperation(ctx context.Context, id volume.ID, pv *corev1.PersistentVolume, savedRaw string, hasSavedProp bool, now time.Time) (*operations.Operation, error) {
 	needsApply := false
-	rawSavedProp, hasSavedProp := rd.Props[version.SavedPVPropKey]
 
-	klog.V(2).Infof("Ensure that we have a matching PV to update for RD '%s'", rd.Name)
+	klog.V(2).Infof("Ensure that we have a matching PV to update for Volume %s", id)
 	if pv == nil {
 		if !hasSavedProp {
-			klog.V(1).Infof("Resource '%s' has no matching PV and no saved PV configuration, nothing to do", rd.Name)
+			klog.V(1).Infof("Volume %s has no matching PV and no saved PV configuration, nothing to do", id)
 			return nil, nil
 		}
 		klog.V(2).Infof("Decoding saved PV from property")
@@ -93,7 +147,7 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 		// NB: we deserialize a PersistentVolumeApplyConfiguration here as PersistentVolume. This is fine, because
 		// the ApplyConfiguration is just missing some optional fields, otherwise they are the same.
 		pv = &corev1.PersistentVolume{}
-		err := json.Unmarshal([]byte(rawSavedProp), pv)
+		err := json.Unmarshal([]byte(savedRaw), pv)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse saved PV resource: %w", err)
 		}
@@ -103,7 +157,7 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 		// NB: we deserialize a PersistentVolumeApplyConfiguration here as PersistentVolume. This is fine, because
 		// the ApplyConfiguration is just missing some optional fields, otherwise they are the same.
 		savedPV := &corev1.PersistentVolume{}
-		err := json.Unmarshal([]byte(rawSavedProp), savedPV)
+		err := json.Unmarshal([]byte(savedRaw), savedPV)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse saved PV resource: %w", err)
 		}
@@ -113,8 +167,8 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 			pv.Spec.PersistentVolumeReclaimPolicy = savedPV.Spec.PersistentVolumeReclaimPolicy
 			needsApply = true
 		} else {
-			klog.V(2).Infof("Need to remove stale PV property from RD")
-			return operations.RemovePVProperty(a.LinstorClient, rd.Name), nil
+			klog.V(2).Infof("Need to remove stale PV property from volume '%s'", id)
+			return operations.RemovePVProperty(a.LinstorClient, id), nil
 		}
 	}
 
@@ -143,25 +197,25 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 		return nil, nil
 	}
 
-	klog.V(2).Infof("Check if LINSTOR API Cache for Resource '%s' has resource available", rd.Name)
-	ress, err := a.LinstorClient.Resources.GetAll(ctx, rd.Name)
+	klog.V(2).Infof("Check if LINSTOR API Cache for Resource '%s' has resource available", id.ResourceName)
+	ress, err := a.LinstorClient.Resources.GetAll(ctx, id.ResourceName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get resources for resource definition '%s': %w", rd.Name, err)
+		return nil, fmt.Errorf("failed to get resources for resource definition '%s': %w", id.ResourceName, err)
 	}
 
 	if len(ress) == 0 {
-		klog.V(2).Infof("RD '%s' not (yet) present in cache, skipping", pv.Name)
+		klog.V(2).Infof("RD '%s' not (yet) present in cache, skipping", id.ResourceName)
 		return nil, nil
 	}
 
-	klog.V(2).Infof("Determine access policy to apply to RD '%s'", rd.Name)
+	klog.V(2).Infof("Determine access policy to apply to RD '%s'", id.ResourceName)
 	policy, err := a.getRemoteAccessParameter(ctx, pv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine access policy: %w", err)
 	}
 
 	klog.V(2).Infof("Determine expected accessible topologies for policy '%v'", policy)
-	topos, err := a.LinstorClient.GenericAccessibleTopologies(ctx, pv.Spec.CSI.VolumeHandle, policy)
+	topos, err := a.LinstorClient.GenericAccessibleTopologies(ctx, id.ResourceName, policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine accessible topologies: %w", err)
 	}
@@ -172,12 +226,12 @@ func (a *AffinityReconciler) generateOperations(ctx context.Context, rd *client.
 	}
 
 	if needsApply {
-		klog.V(1).Infof("Need to replace PV '%s' for resource '%s'", pv.Name, rd.Name)
-		return operations.ReplacePV(a.KubernetesClient, a.LinstorClient, a.EventRecorder, rd.Name, pv, topos), nil
-	} else {
-		klog.V(2).Infof("PV '%s' affinity is up-to-date with resource '%s'", pv.Name, rd.Name)
-		return nil, nil
+		klog.V(1).Infof("Need to replace PV '%s' for volume %s", pv.Name, id)
+		return operations.ReplacePV(a.KubernetesClient, a.LinstorClient, a.EventRecorder, id, pv, topos), nil
 	}
+
+	klog.V(2).Infof("PV '%s' affinity is up-to-date with volume '%s'", pv.Name, id)
+	return nil, nil
 }
 
 func (a *AffinityReconciler) getRemoteAccessParameter(ctx context.Context, pv *corev1.PersistentVolume) (volume.RemoteAccessPolicy, error) {

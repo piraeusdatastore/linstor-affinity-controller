@@ -10,6 +10,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/piraeusdatastore/csi-reclaim-controller/pkg/reclaim"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
+	"github.com/piraeusdatastore/linstor-csi/pkg/volume"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,13 +27,13 @@ import (
 //
 // To replace a PV, the Operation does:
 // 1. Compute the PV that should replace it.
-// 2. Save the new PV configuration on the LINSTOR RD as a property (version.SavedPVPropKey).
+// 2. Save the new PV configuration on the LINSTOR volume definition (version.SavedPVPropKey).
 // 3. Patch the existing PV to use "Retain" reclaim policy.
 // 4. Delete the existing PV.
 // 5. Force-remove all finalizers from the PV, letting deletion complete.
 // 6. Re-apply the updated PV
-// 7. Remove the property from the LINSTOR RD.
-func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, eventRecorder events.EventRecorder, rdName string, pv *corev1.PersistentVolume, topologies []*csi.Topology) *Operation {
+// 7. Remove the property from the LINSTOR volume definition.
+func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, eventRecorder events.EventRecorder, id volume.ID, pv *corev1.PersistentVolume, topologies []*csi.Topology) *Operation {
 	return &Operation{
 		Name: "ReplacePV",
 		Execute: func(ctx context.Context) error {
@@ -59,7 +60,7 @@ func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, 
 
 			klog.V(2).Infof("Will replace PV with '%+v'", newPv)
 
-			klog.V(3).Infof("Saving expected PV state to RD property")
+			klog.V(3).Infof("Saving expected PV state to volume definition '%s/%d'", id.ResourceName, id.VolumeNumber)
 
 			// NB: We encode a PersistentVolumeApplyConfiguration, but decode a PersistentVolume. These are compatible,
 			// but PersistentVolumeApplyConfiguration can have more "empty" fields.
@@ -68,7 +69,9 @@ func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, 
 				return fmt.Errorf("failed to encode PV: %w", err)
 			}
 
-			err = lclient.ResourceDefinitions.Modify(ctx, rdName, client.GenericPropsModify{OverrideProps: map[string]string{version.SavedPVPropKey: string(encoded)}})
+			err = lclient.ResourceDefinitions.ModifyVolumeDefinition(ctx, id.ResourceName, id.VolumeNumber, client.VolumeDefinitionModify{
+				GenericPropsModify: client.GenericPropsModify{OverrideProps: map[string]string{version.SavedPVPropKey: string(encoded)}},
+			})
 			if err != nil {
 				return fmt.Errorf("failed to update property value: %w", err)
 			}
@@ -112,10 +115,12 @@ func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, 
 				return fmt.Errorf("failed to apply replacement PV: %w", err)
 			}
 
-			klog.V(3).Infof("removing applied PV property from RD")
-			err = lclient.ResourceDefinitions.Modify(ctx, rdName, client.GenericPropsModify{DeleteProps: []string{version.SavedPVPropKey}})
+			klog.V(3).Infof("removing applied PV property from volume definition '%s/%d'", id.ResourceName, id.VolumeNumber)
+			err = lclient.ResourceDefinitions.ModifyVolumeDefinition(ctx, id.ResourceName, id.VolumeNumber, client.VolumeDefinitionModify{
+				GenericPropsModify: client.GenericPropsModify{DeleteProps: []string{version.SavedPVPropKey}},
+			})
 			if err != nil {
-				return fmt.Errorf("failed to remove stale property from RD: %w", err)
+				return fmt.Errorf("failed to remove stale property from volume definition: %w", err)
 			}
 
 			eventRecorder.Eventf(pv, nil, corev1.EventTypeNormal, "VolumeAffinityUpdated", "Replaced with updated version", "Affinity was out of sync with LINSTOR resource state")
