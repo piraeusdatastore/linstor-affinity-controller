@@ -3,7 +3,7 @@ module github.com/piraeusdatastore/linstor-affinity-controller
 go 1.26.0
 
 require (
-	github.com/LINBIT/golinstor v0.63.0
+	github.com/LINBIT/golinstor v0.64.0
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/piraeusdatastore/linstor-csi v1.11.2
 	github.com/prometheus/client_golang v1.23.2
