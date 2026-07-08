@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Set the `<csi-driver>/skip-reclaim` annotation on a PV while it is deleted and recreated to update affinity, so [csi-reclaim-controller](https://github.com/piraeusdatastore/csi-reclaim-controller) does not delete the backing volume during the in-place replace.
+
 ## [1.4.1] - 2025-05-12
 
 ### Changed
