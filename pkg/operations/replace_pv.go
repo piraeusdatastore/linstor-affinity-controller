@@ -8,6 +8,7 @@ import (
 
 	"github.com/LINBIT/golinstor/client"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/piraeusdatastore/csi-reclaim-controller/pkg/reclaim"
 	hlclient "github.com/piraeusdatastore/linstor-csi/pkg/linstor/highlevelclient"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -76,7 +77,13 @@ func ReplacePV(kclient kubernetes.Interface, lclient *hlclient.HighLevelClient, 
 			if pv.ObjectMeta.ResourceVersion != "" {
 				klog.V(3).Infof("Reconfigure PV to not delete backing volume: %v", err)
 
-				patch := []byte(`{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}`)
+				// Mark the PV so csi-reclaim-controller leaves the backing volume
+				// alone when we delete the PV below: this is an in-place recreate,
+				// not an intentional delete. The key is namespaced by the PV's CSI
+				// driver, matching that controller's default. Set atomically with
+				// the Retain switch so it is present before the deletionTimestamp.
+				skipReclaim := reclaim.SkipAnnotation(pv.Spec.CSI.Driver)
+				patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:"true"}},"spec":{"persistentVolumeReclaimPolicy":"Retain"}}`, skipReclaim))
 				pv, err = kclient.CoreV1().PersistentVolumes().Patch(ctx, pv.Name, types.MergePatchType, patch, metav1.PatchOptions{FieldManager: version.FieldManager})
 				if err != nil {
 					return fmt.Errorf("failed to reconfigure PV reclaim mode: %w", err)
