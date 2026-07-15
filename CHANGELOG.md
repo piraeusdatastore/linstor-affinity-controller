@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Support multiple PersistentVolumes backed by a single LINSTOR ResourceDefinition, one per volume number.
+- `migrate-properties` command to move saved-PV state from ResourceDefinitions to VolumeDefinitions. Run it once when upgrading, see [Upgrading](README.md#upgrading).
+
+### Changed
+- Track the internal saved-PV state on the LINSTOR VolumeDefinition instead of the ResourceDefinition.
+
 ## [1.4.2] - 2026-07-08
 
 ### Added

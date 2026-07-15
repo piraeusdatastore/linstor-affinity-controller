@@ -67,6 +67,28 @@ The following options can be set on the chart:
 | `autoscaling.enabled`         | Enable creation of a horizontal pod autoscaler to ensure availability in case of high usage` | `"false`                                                      |
 | `monitoring.enabled`          | Enable creation of resources for monitoring via Prometheus Operator                          | `"false"`                                                     |
 
+## Upgrading
+
+A single LINSTOR ResourceDefinition can now back multiple PersistentVolumes (one per volume). Because of this,
+the controller tracks its internal saved-PV state on each VolumeDefinition instead of on the ResourceDefinition.
+
+When upgrading from a version older than the one that introduced this change, run the one-shot
+`migrate-properties` command **once**, after rolling out the new image, to move any existing saved state to the
+volume definitions. The command is idempotent and safe to re-run. On a healthy cluster there is usually nothing
+to migrate: the state only exists while a PV is mid-replace.
+
+The command talks only to LINSTOR (not Kubernetes) and reuses the same connection settings as the controller
+(`LS_CONTROLLERS`, plus `LS_USER_CERTIFICATE`/`LS_USER_KEY`/`LS_ROOT_CA` for TLS). The simplest way to run it is
+inside the already-running controller pod, which has these configured:
+
+```
+kubectl exec deploy/linstor-affinity-controller -- /linstor-affinity-controller migrate-properties
+```
+
+Add `-n <namespace>` if the controller is not in your current namespace, and adjust the deployment name to match
+your Helm release. Alternatively, run the same container image as a one-off `Job` with the same environment and
+client secret as the controller Deployment.
+
 ## Volume annotations and LINSTOR properties
 
 The controller's behaviour for individual volumes can be controlled via Kubernetes annotations on the PV and LINSTOR
