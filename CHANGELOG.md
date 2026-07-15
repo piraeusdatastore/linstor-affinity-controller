@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-15
+
 ### Added
 - Support multiple PersistentVolumes backed by a single LINSTOR ResourceDefinition, one per volume number.
 - `migrate-properties` command to move saved-PV state from ResourceDefinitions to VolumeDefinitions. Run it once when upgrading, see [Upgrading](README.md#upgrading).
@@ -105,7 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial implementation
 
-[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/piraeusdatastore/linstor-affinity-controller/compare/v1.3.0...v1.4.0
