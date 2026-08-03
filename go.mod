@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/LINBIT/golinstor v0.64.1
-	github.com/container-storage-interface/spec v1.12.0
+	github.com/container-storage-interface/spec v1.13.0
 	github.com/piraeusdatastore/csi-reclaim-controller v0.1.0
 	github.com/piraeusdatastore/linstor-csi v1.12.0
 	github.com/prometheus/client_golang v1.24.1
