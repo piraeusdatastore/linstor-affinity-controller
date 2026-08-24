@@ -3,7 +3,7 @@ module github.com/piraeusdatastore/linstor-affinity-controller
 go 1.26.0
 
 require (
-	github.com/LINBIT/golinstor v0.64.1
+	github.com/LINBIT/golinstor v0.65.0
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/piraeusdatastore/csi-reclaim-controller v0.1.0
 	github.com/piraeusdatastore/linstor-csi v1.12.0
@@ -11,11 +11,11 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.22.0
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/cli-runtime v0.36.3
-	k8s.io/client-go v0.36.3
-	k8s.io/component-base v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
+	k8s.io/cli-runtime v0.36.4
+	k8s.io/client-go v0.36.4
+	k8s.io/component-base v0.36.4
 	k8s.io/klog/v2 v2.140.0
 )
 
